@@ -5364,6 +5364,7 @@ BaseRenderer.prototype.checkLayers = function(num){
     for (i = len - 1; i >= 0; i--) {
         if (!this.elements[i]) {
             data = this.layers[i];
+            console.log("num = ", num, "data.ip - data.st = ", data.ip - data.st, "data.op - data.st = ", data.op - data.st, "currentSt = ", this.layers[i].st);
             if(data.ip - data.st <= (num - this.layers[i].st) && data.op - data.st > (num - this.layers[i].st))
             {
                 this.buildItem(i);
@@ -5399,6 +5400,7 @@ BaseRenderer.prototype.createCamera = function(){
 }
 
 BaseRenderer.prototype.buildAllItems = function(){
+    console.log("BaseRenderer.buildAllItems");
     var i, len = this.layers.length;
     for(i=0;i<len;i+=1){
         this.buildItem(i);
@@ -5450,8 +5452,6 @@ BaseRenderer.prototype.buildElementParenting = function(element, parentName, hie
                 elements[i]._isParent = true;
                 element.setHierarchy(hierarchy);
             }
-
-
         }
         i += 1;
     }
@@ -5460,6 +5460,7 @@ BaseRenderer.prototype.buildElementParenting = function(element, parentName, hie
 BaseRenderer.prototype.addPendingElement = function(element){
     this.pendingElements.push(element);
 };
+
 function SVGRenderer(animationItem, config){
     this.animationItem = animationItem;
     this.layers = null;
@@ -5691,6 +5692,184 @@ SVGRenderer.prototype.searchExtraCompositions = function(assets){
             this.globalData.projectInterface.registerComposition(comp);
         }
     }
+};
+
+//this.app = new PIXI.Application(2000, 600, {backgroundColor : 0x1099bb});
+//this.globalData.stage = this.app.stage;
+//document.body.appendChild(this.app.view);
+function PIXIRenderer(t, e) {
+    this.animationItem = t,
+    this.layers = null,
+    this.renderedFrame = -1,
+    this.globalData = {
+        frameNum: -1
+    },
+    this.renderConfig = {
+        preserveAspectRatio: e && e.preserveAspectRatio || "xMidYMid meet",
+        progressiveLoad: e && e.progressiveLoad || !1
+    },
+    this.elements = [],
+    this.destroyed = !1
+};
+
+extendPrototype(BaseRenderer, PIXIRenderer);
+
+PIXIRenderer.prototype.createBase = function(t) {
+    return new PIXIBaseElement(t,this.layerElement,this.globalData,this)
+};
+
+PIXIRenderer.prototype.createShape = function(t) {
+    return new PIXIShapeElement(t,this.layerElement,this.globalData,this)
+};
+
+PIXIRenderer.prototype.createText = function(t) {
+    return new SVGTextElement(t,this.layerElement,this.globalData,this)
+};
+
+PIXIRenderer.prototype.createImage = function(t) {
+    return new IImageElement(t,this.layerElement,this.globalData,this)
+};
+
+PIXIRenderer.prototype.createComp = function(t) {
+    return new PIXICompElement(t,this.layerElement,this.globalData,this)
+};
+
+PIXIRenderer.prototype.createSolid = function(t) {
+    return null;// new PIXISolidElement(t,this.layerElement,this.globalData,this)
+};
+
+PIXIRenderer.prototype.configAnimation = function(t) {
+    this.layerElement = document.createElementNS(svgNS, "svg"),
+    this.layerElement.setAttribute("xmlns", "http://www.w3.org/2000/svg"),
+    this.layerElement.setAttribute("width", t.w),
+    this.layerElement.setAttribute("height", t.h),
+    this.layerElement.setAttribute("viewBox", "0 0 " + t.w + " " + t.h),
+    this.layerElement.setAttribute("preserveAspectRatio", this.renderConfig.preserveAspectRatio),
+    this.layerElement.style.width = "100%",
+    this.layerElement.style.height = "100%",
+    this.layerElement.style.transform = "translate3d(0,0,0)",
+    this.layerElement.style.transformOrigin = this.layerElement.style.mozTransformOrigin = this.layerElement.style.webkitTransformOrigin = this.layerElement.style["-webkit-transform"] = "0px 0px 0px",
+    this.animationItem.wrapper.appendChild(this.layerElement),
+    this.renderer = new PIXI.WebGLRenderer(t.w,t.h,{
+        antialias: !0,
+        transparent: !0
+    }),
+    this.animationItem.wrapper.appendChild(this.renderer.view),
+    this.stage = new PIXI.Container,
+    this.PLayerElement = this.stage;
+    var e = document.createElementNS(svgNS, "defs");
+    this.globalData.defs = e,
+    this.layerElement.appendChild(e),
+    this.globalData.getAssetData = this.animationItem.getAssetData.bind(this.animationItem),
+    this.globalData.getAssetsPath = this.animationItem.getAssetsPath.bind(this.animationItem),
+    this.globalData.progressiveLoad = this.renderConfig.progressiveLoad,
+    this.globalData.frameId = 0,
+    this.globalData.compSize = {
+        w: t.w,
+        h: t.h
+    },
+    this.globalData.frameRate = t.fr;
+    var r = document.createElementNS(svgNS, "clipPath")
+    , i = document.createElementNS(svgNS, "rect");
+    i.setAttribute("width", t.w),
+    i.setAttribute("height", t.h),
+    i.setAttribute("x", 0),
+    i.setAttribute("y", 0);
+    var s = "animationMask_" + randomString(10);
+    r.setAttribute("id", s),
+    r.appendChild(i);
+    var n = document.createElementNS(svgNS, "g");
+    n.setAttribute("clip-path", "url(#" + s + ")"),
+    this.layerElement.appendChild(n),
+    e.appendChild(r),
+    this.layerElement = n,
+    this.layers = t.layers,
+    this.globalData.fontManager = new FontManager,
+    this.globalData.fontManager.addChars(t.chars),
+    this.globalData.fontManager.addFonts(t.fonts, e),
+    this.elements = Array.apply(null, {
+        length: t.layers.length
+    })
+};
+
+PIXIRenderer.prototype.destroy = function() {
+    this.animationItem.wrapper.innerHTML = "",
+    this.layerElement = null,
+    this.globalData.defs = null;
+    var t, e = this.layers ? this.layers.length : 0;
+    for (t = 0; e > t; t++)
+        this.elements[t] && this.elements[t].destroy();
+    this.elements.length = 0,
+    this.destroyed = !0,
+    this.animationItem = null
+};
+
+PIXIRenderer.prototype.updateContainerSize = function() {};
+
+PIXIRenderer.prototype.buildItem = function(t) {
+    var e = this.elements;
+    if (!e[t] && 99 != this.layers[t].ty) {
+        var r = this.createItem(this.layers[t]);
+        e[t] = r,
+        expressionsPlugin && (0 === this.layers[t].ty && this.globalData.projectInterface.registerComposition(r),
+                              r.initExpressions()),
+        this.appendElementInPos(r, t),
+        this.layers[t].tt && (this.buildItem(t - 1),
+                              r.setMatte(e[t - 1].layerId))
+    }
+};
+
+PIXIRenderer.prototype.renderFrame = function(t) {
+    if (this.renderedFrame != t && !this.destroyed) {
+        null === t ? t = this.renderedFrame : this.renderedFrame = t,
+        this.globalData.frameNum = t,
+        this.globalData.frameId += 1,
+        this.globalData.projectInterface.currentFrame = t;
+        var e, r = this.layers.length;
+        for (this.completeLayers || this.checkLayers(t),
+             e = r - 1; e >= 0; e--)
+            (this.completeLayers || this.elements[e]) && this.elements[e].prepareFrame(t - this.layers[e].st);
+        for (e = r - 1; e >= 0; e--)
+            (this.completeLayers || this.elements[e]) && this.elements[e].renderFrame();
+        this.renderer.render(this.stage)
+    }
+};
+
+PIXIRenderer.prototype.appendElementInPos = function(t, e) {
+    var r = t.getBaseElement()
+    , i = t.getPBaseElement();
+    if (i || console.log(t),
+        r) {
+        for (var s, n, a = 0; e > a; )
+            this.elements[a] && this.elements[a].getBaseElement() && (s = this.elements[a].getBaseElement(),
+                                                                      n = this.elements[a].getPBaseElement()),
+        a += 1;
+        if (s) {
+            this.layerElement.insertBefore(r, s);
+            var o = this.PLayerElement.getChildIndex(n);
+            this.PLayerElement.addChildAt(i, o)
+        } else
+            this.layerElement.appendChild(r),
+        this.PLayerElement.addChild(i)
+    }
+};
+
+PIXIRenderer.prototype.hide = function() {
+    this.layerElement.style.display = "none"
+};
+
+PIXIRenderer.prototype.show = function() {
+    this.layerElement.style.display = "block"
+};
+
+PIXIRenderer.prototype.searchExtraCompositions = function(t) {
+    var e, r = t.length, i = document.createElementNS(svgNS, "g");
+    for (e = 0; r > e; e += 1)
+        if (t[e].xt) {
+            var s = this.createComp(t[e], i, this.globalData.comp, null);
+            s.initExpressions(),
+            this.globalData.projectInterface.registerComposition(s)
+        }
 };
 
 function MaskElement(data,element,globalData) {
@@ -8196,7 +8375,6 @@ var animationManager = (function(){
         return animItem;
     }
 
-
     function setSpeed(val,animation){
         var i;
         for(i=0;i<len;i+=1){
@@ -8341,6 +8519,7 @@ var animationManager = (function(){
     moduleOb.destroy = destroy;
     return moduleOb;
 }());
+
 var AnimationItem = function () {
     this._cbs = [];
     this.name = '';
@@ -8385,6 +8564,9 @@ AnimationItem.prototype.setParams = function(params) {
     }
     var animType = params.animType ? params.animType : params.renderer ? params.renderer : 'svg';
     switch(animType){
+        case 'pixi':
+            this.renderer = new PIXIRenderer(this, params.rendererSettings);
+            break;
         case 'canvas':
             this.renderer = new CanvasRenderer(this, params.rendererSettings);
             break;
@@ -9136,6 +9318,7 @@ CanvasRenderer.prototype.restore = function(actionFlag){
 };
 
 CanvasRenderer.prototype.configAnimation = function(animData){
+    console.log(animData);
     if(this.animationItem.wrapper){
         this.animationItem.container = document.createElement('canvas');
         this.animationItem.container.style.width = '100%';
@@ -9343,6 +9526,7 @@ CanvasRenderer.prototype.searchExtraCompositions = function(assets){
         }
     }
 };
+
 function HybridRenderer(animationItem){
     this.animationItem = animationItem;
     this.layers = null;
@@ -9622,6 +9806,882 @@ HybridRenderer.prototype.searchExtraCompositions = function(assets){
         }
     }
 };
+function PIXIBaseElement(t, e, r, i, s) {
+    this.globalData = r,
+    this.comp = i,
+    this.data = t,
+    this.matteElement = null,
+    this.parentContainer = e,
+    this.layerId = s ? s.layerId : "ly_" + randomString(10),
+    this.placeholder = s,
+    this.init()
+};
+
+createElement(BaseElement, PIXIBaseElement);
+
+PIXIBaseElement.prototype.createElements = function() {
+    if (this.data.td) {
+        if (3 == this.data.td)
+            this.layerElement = document.createElementNS(svgNS, "mask"),
+        this.layerElement.setAttribute("id", this.layerId),
+        this.layerElement.setAttribute("mask-type", "luminance"),
+        this.globalData.defs.appendChild(this.layerElement);
+        else if (2 == this.data.td) {
+            var t = document.createElementNS(svgNS, "mask");
+            t.setAttribute("id", this.layerId),
+            t.setAttribute("mask-type", "alpha");
+            var e = document.createElementNS(svgNS, "g");
+            t.appendChild(e),
+            this.layerElement = document.createElementNS(svgNS, "g");
+            var r = document.createElementNS(svgNS, "filter")
+            , i = randomString(10);
+            r.setAttribute("id", i),
+            r.setAttribute("filterUnits", "objectBoundingBox"),
+            r.setAttribute("x", "0%"),
+            r.setAttribute("y", "0%"),
+            r.setAttribute("width", "100%"),
+            r.setAttribute("height", "100%");
+            var s = document.createElementNS(svgNS, "feComponentTransfer");
+            s.setAttribute("in", "SourceGraphic"),
+            r.appendChild(s);
+            var n = document.createElementNS(svgNS, "feFuncA");
+            n.setAttribute("type", "table"),
+            n.setAttribute("tableValues", "1.0 0.0"),
+            s.appendChild(n),
+            this.globalData.defs.appendChild(r);
+            var a = document.createElementNS(svgNS, "rect");
+            a.setAttribute("width", this.comp.data ? this.comp.data.w : this.globalData.compSize.w),
+            a.setAttribute("height", this.comp.data ? this.comp.data.h : this.globalData.compSize.h),
+            a.setAttribute("x", "0"),
+            a.setAttribute("y", "0"),
+            a.setAttribute("fill", "#ffffff"),
+            a.setAttribute("opacity", "0"),
+            e.setAttribute("filter", "url(#" + i + ")"),
+            e.appendChild(a),
+            e.appendChild(this.layerElement),
+            this.globalData.defs.appendChild(t)
+        } else {
+            this.layerElement = document.createElementNS(svgNS, "g");
+            var o = document.createElementNS(svgNS, "mask");
+            o.setAttribute("id", this.layerId),
+            o.setAttribute("mask-type", "alpha"),
+            o.appendChild(this.layerElement),
+            this.globalData.defs.appendChild(o)
+        }
+        this.data.hasMask && (this.maskedElement = this.layerElement)
+    } else
+        this.data.hasMask || this.data.tt ? (this.layerElement = document.createElementNS(svgNS, "g"),
+                                             this.PLayerElement = new PIXI.DisplayObjectContainer,
+                                             this.data.tt ? (this.matteElement = document.createElementNS(svgNS, "g"),
+                                                             this.matteElement.appendChild(this.layerElement),
+                                                             this.baseElement = this.matteElement) : (this.baseElement = this.layerElement,
+                                                                                                      this.PBaseElement = this.PLayerElement),
+                                             this.data.hasMask && (this.maskedElement = this.layerElement,
+                                                                   this.PMaskedElement = this.PLayerElement)) : (this.layerElement = document.createElementNS(svgNS, "g"),
+                                                                                                                 this.baseElement = this.layerElement,
+                                                                                                                 this.PLayerElement = new PIXI.DisplayObjectContainer,
+                                                                                                                 this.PBaseElement = this.PLayerElement);
+    if (!this.data.ln && !this.data.cl || 4 !== this.data.ty && 0 !== this.data.ty || (this.data.ln && this.layerElement.setAttribute("id", this.data.ln),
+                                                                                       this.data.cl && this.layerElement.setAttribute("class", this.data.cl)),
+        0 === this.data.ty && !this.checkMasks()) {
+        var h = document.createElementNS(svgNS, "clipPath")
+        , l = document.createElementNS(svgNS, "path");
+        l.setAttribute("d", "M0,0 L" + this.data.w + ",0 L" + this.data.w + "," + this.data.h + " L0," + this.data.h + "z");
+        var p = "cp_" + randomString(8);
+        h.setAttribute("id", p),
+        this.layerElement.setAttribute("clip-path", "url(#" + p + ")"),
+        h.appendChild(l),
+        this.globalData.defs.appendChild(h)
+    }
+    0 !== this.data.bm && this.setBlendMode(),
+    this.layerElement !== this.parentContainer && (this.placeholder = null),
+    this.data.ef && (this.effectsManager = new SVGEffects(this)),
+    this.checkParenting()
+};
+
+PIXIBaseElement.prototype.setBlendMode = BaseElement.prototype.setBlendMode;
+
+PIXIBaseElement.prototype.renderFrame = function(t) {
+    if (3 === this.data.ty || this.data.hd)
+        return !1;
+    if (!this.isVisible)
+        return this.isVisible;
+    this.lastNum = this.currentFrameNum,
+    this.finalTransform.opMdf = this.finalTransform.op.mdf,
+    this.finalTransform.matMdf = this.finalTransform.mProp.mdf,
+    this.finalTransform.opacity = this.finalTransform.op.v,
+    this.firstFrame && (this.finalTransform.opMdf = !0,
+                        this.finalTransform.matMdf = !0);
+    var e, r = this.finalTransform.mat;
+    if (this.hierarchy) {
+        var i, s = this.hierarchy.length;
+        for (e = this.finalTransform.mProp.v.props,
+             r.cloneFromProps(e),
+             i = 0; s > i; i += 1)
+            this.finalTransform.matMdf = this.hierarchy[i].finalTransform.mProp.mdf ? !0 : this.finalTransform.matMdf,
+        e = this.hierarchy[i].finalTransform.mProp.v.props,
+        r.transform(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8], e[9], e[10], e[11], e[12], e[13], e[14], e[15])
+    } else
+        this.isVisible && r.cloneFromProps(this.finalTransform.mProp.v.props);
+    t && (e = t.mat.props,
+          r.transform(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8], e[9], e[10], e[11], e[12], e[13], e[14], e[15]),
+          this.finalTransform.opacity *= t.opacity,
+          this.finalTransform.opMdf = t.opMdf ? !0 : this.finalTransform.opMdf,
+          this.finalTransform.matMdf = t.matMdf ? !0 : this.finalTransform.matMdf),
+    this.finalTransform.matMdf && this.layerElement && this.layerElement.setAttribute("transform", r.to2dCSS());
+    var n = new PIXI.Matrix;
+    return n.a = r.props[0],
+    n.b = r.props[1],
+    n.c = r.props[4],
+    n.d = r.props[5],
+    n.tx = r.props[12],
+    n.ty = r.props[13],
+    this.PLayerElement.transform.setFromMatrix(n),
+    this.finalTransform.opMdf && this.layerElement && (this.layerElement.setAttribute("opacity", this.finalTransform.opacity),
+                                                       this.PLayerElement.alpha = this.finalTransform.opacity),
+    this.data.hasMask && this.maskManager.renderFrame(r),
+    this.effectsManager && this.effectsManager.renderFrame(this.firstFrame),
+    this.isVisible
+};
+
+PIXIBaseElement.prototype.destroy = function() {
+    this.layerElement = null,
+    this.parentContainer = null,
+    this.matteElement && (this.matteElement = null),
+    this.maskManager && this.maskManager.destroy()
+};
+
+PIXIBaseElement.prototype.getBaseElement = function() {
+    return this.baseElement
+};
+
+PIXIBaseElement.prototype.getPBaseElement = function() {
+    return this.PBaseElement
+};
+
+PIXIBaseElement.prototype.addMasks = function(t) {
+    this.maskManager = new PIXIMaskElement(t,this,this.globalData)
+};
+
+PIXIBaseElement.prototype.setMatte = function(t) {
+    this.matteElement && this.matteElement.setAttribute("mask", "url(#" + t + ")")
+};
+
+PIXIBaseElement.prototype.setMatte = function(t) {
+    this.matteElement && this.matteElement.setAttribute("mask", "url(#" + t + ")")
+};
+
+PIXIBaseElement.prototype.hide = function() {};
+
+function PIXICompElement(t, e, r, i, s) {
+    this._parent.constructor.call(this, t, e, r, i, s),
+    this.layers = t.layers,
+    this.supports3d = !0,
+    this.completeLayers = !1,
+    this.elements = Array.apply(null, {
+        length: this.layers.length
+    }),
+    this.data.tm && (this.tm = PropertyFactory.getProp(this, this.data.tm, 0, r.frameRate, this.dynamicProperties)),
+    this.data.xt ? (this.layerElement = document.createElementNS(svgNS, "g"),
+                    this.buildAllItems()) : r.progressiveLoad || this.buildAllItems()
+}
+
+createElement(PIXIBaseElement, PIXICompElement);
+
+PIXICompElement.prototype.hide = function() {
+    if (!this.hidden) {
+        var t, e = this.elements.length;
+        for (t = 0; e > t; t += 1)
+            this.elements[t] && this.elements[t].hide();
+        this.hidden = !0
+    }
+};
+
+PIXICompElement.prototype.prepareFrame = function(t) {
+    if (this._parent.prepareFrame.call(this, t),
+        this.isVisible !== !1 || this.data.xt) {
+        var e = t;
+        this.tm && (e = this.tm.v,
+                    e === this.data.op && (e = this.data.op - 1)),
+        this.renderedFrame = e / this.data.sr;
+        var r, i = this.elements.length;
+        for (this.completeLayers || this.checkLayers(this.renderedFrame),
+             r = 0; i > r; r += 1)
+            (this.completeLayers || this.elements[r]) && this.elements[r].prepareFrame(e / this.data.sr - this.layers[r].st)
+    }
+};
+
+PIXICompElement.prototype.renderFrame = function(t) {
+    var e, r = this._parent.renderFrame.call(this, t), i = this.layers.length;
+    if (r === !1)
+        return void this.hide();
+    for (this.hidden = !1,
+         e = 0; i > e; e += 1)
+        (this.completeLayers || this.elements[e]) && this.elements[e].renderFrame();
+    this.firstFrame && (this.firstFrame = !1)
+};
+
+PIXICompElement.prototype.setElements = function(t) {
+    this.elements = t
+};
+
+PIXICompElement.prototype.getElements = function() {
+    return this.elements
+};
+
+PIXICompElement.prototype.destroy = function() {
+    this._parent.destroy.call();
+    var t, e = this.layers.length;
+    for (t = 0; e > t; t += 1)
+        this.elements[t] && this.elements[t].destroy()
+};
+
+PIXICompElement.prototype.checkLayers = PIXIRenderer.prototype.checkLayers;
+PIXICompElement.prototype.buildItem = PIXIRenderer.prototype.buildItem;
+PIXICompElement.prototype.buildAllItems = PIXIRenderer.prototype.buildAllItems;
+PIXICompElement.prototype.buildElementParenting = PIXIRenderer.prototype.buildElementParenting;
+PIXICompElement.prototype.createItem = PIXIRenderer.prototype.createItem;
+PIXICompElement.prototype.createImage = PIXIRenderer.prototype.createImage;
+PIXICompElement.prototype.createComp = PIXIRenderer.prototype.createComp;
+PIXICompElement.prototype.createSolid = PIXIRenderer.prototype.createSolid;
+PIXICompElement.prototype.createShape = PIXIRenderer.prototype.createShape;
+PIXICompElement.prototype.createText = PIXIRenderer.prototype.createText;
+PIXICompElement.prototype.createBase = PIXIRenderer.prototype.createBase;
+PIXICompElement.prototype.appendElementInPos = PIXIRenderer.prototype.appendElementInPos;
+
+function PIXIShapeElement(t, e, r, i, s) {
+    this.shapes = [],
+    this.shapesData = t.shapes,
+    this.stylesList = [],
+    this.viewData = [],
+    this.shapeModifiers = [],
+    this._parent.constructor.call(this, t, e, r, i, s)
+};
+
+createElement(PIXIBaseElement, PIXIShapeElement);
+
+PIXIShapeElement.prototype.lcEnum = {
+    1: "butt",
+    2: "round",
+    3: "butt"
+};
+PIXIShapeElement.prototype.ljEnum = {
+    1: "miter",
+    2: "round",
+    3: "butt"
+};
+PIXIShapeElement.prototype.buildExpressionInterface = function() {}
+
+PIXIShapeElement.prototype.createElements = function() {
+    this._parent.createElements.call(this),
+    this.searchShapes(this.shapesData, this.viewData, this.layerElement, this.PLayerElement, this.dynamicProperties, 0),
+    (!this.data.hd || this.data.td) && styleUnselectableDiv(this.layerElement)
+};
+
+PIXIShapeElement.prototype.setGradientData = function(t, e, r) {
+    var i, s = "gr_" + randomString(10);
+    i = 1 === e.t ? document.createElementNS(svgNS, "linearGradient") : document.createElementNS(svgNS, "radialGradient"),
+    i.setAttribute("id", s),
+    i.setAttribute("spreadMethod", "pad"),
+    i.setAttribute("gradientUnits", "userSpaceOnUse");
+    var n, a, o, h = [];
+    for (o = 4 * e.g.p,
+         a = 0; o > a; a += 4)
+        n = document.createElementNS(svgNS, "stop"),
+    i.appendChild(n),
+    h.push(n);
+    t.setAttribute("gf" === e.ty ? "fill" : "stroke", "url(#" + s + ")"),
+    this.globalData.defs.appendChild(i),
+    r.gf = i,
+    r.cst = h
+};
+
+PIXIShapeElement.prototype.setGradientOpacity = function(t, e, r) {
+    if (t.g.k.k[0].s && t.g.k.k[0].s.length > 4 * t.g.p || t.g.k.k.length > 4 * t.g.p) {
+        var i, s, n, a, o = document.createElementNS(svgNS, "mask"), h = document.createElementNS(svgNS, "path");
+        o.appendChild(h);
+        var l = "op_" + randomString(10)
+        , p = "mk_" + randomString(10);
+        o.setAttribute("id", p),
+        i = 1 === t.t ? document.createElementNS(svgNS, "linearGradient") : document.createElementNS(svgNS, "radialGradient"),
+        i.setAttribute("id", l),
+        i.setAttribute("spreadMethod", "pad"),
+        i.setAttribute("gradientUnits", "userSpaceOnUse"),
+        a = t.g.k.k[0].s ? t.g.k.k[0].s.length : t.g.k.k.length;
+        var c = [];
+        for (n = 4 * t.g.p; a > n; n += 2)
+            s = document.createElementNS(svgNS, "stop"),
+        s.setAttribute("stop-color", "rgb(255,255,255)"),
+        i.appendChild(s),
+        c.push(s);
+        return h.setAttribute("gf" === t.ty ? "fill" : "stroke", "url(#" + l + ")"),
+        this.globalData.defs.appendChild(i),
+        this.globalData.defs.appendChild(o),
+        e.of = i,
+        e.ost = c,
+        r.msElem = h,
+        p
+    }
+};
+
+PIXIShapeElement.prototype.searchShapes = function(t, e, r, i, s, n) {
+    var a, o, h, l, p, c = t.length - 1, u = [], d = [];
+    for (a = c; a >= 0; a -= 1)
+        if ("fl" == t[a].ty || "st" == t[a].ty || "gf" == t[a].ty || "gs" == t[a].ty) {
+            e[a] = {},
+            l = {
+                type: t[a].ty,
+                d: "",
+                PD: [],
+                ld: "",
+                lvl: n,
+                transformers: [],
+                mdf: !1
+            };
+            var f = document.createElementNS(svgNS, "path")
+            , m = new PIXI.Graphics;
+            if (e[a].o = PropertyFactory.getProp(this, t[a].o, 0, .01, s),
+                ("st" == t[a].ty || "gs" == t[a].ty) && (f.setAttribute("stroke-linecap", this.lcEnum[t[a].lc] || "round"),
+                                                         f.setAttribute("stroke-linejoin", this.ljEnum[t[a].lj] || "round"),
+                                                         f.setAttribute("fill-opacity", "0"),
+                                                         1 == t[a].lj && f.setAttribute("stroke-miterlimit", t[a].ml),
+                                                         e[a].w = PropertyFactory.getProp(this, t[a].w, 0, null, s),
+                                                         t[a].d)) {
+                var y = PropertyFactory.getDashProp(this, t[a].d, "svg", s);
+                y.k || (f.setAttribute("stroke-dasharray", y.dasharray),
+                        f.setAttribute("stroke-dashoffset", y.dashoffset)),
+                e[a].d = y
+            }
+            if ("fl" == t[a].ty || "st" == t[a].ty)
+                e[a].c = PropertyFactory.getProp(this, t[a].c, 1, 255, s),
+            r.appendChild(f),
+            i.addChild(m);
+            else {
+                e[a].g = PropertyFactory.getGradientProp(this, t[a].g, s),
+                2 == t[a].t && (e[a].h = PropertyFactory.getProp(this, t[a].h, 1, .01, s),
+                                e[a].a = PropertyFactory.getProp(this, t[a].a, 1, degToRads, s)),
+                e[a].s = PropertyFactory.getProp(this, t[a].s, 1, null, s),
+                e[a].e = PropertyFactory.getProp(this, t[a].e, 1, null, s),
+                this.setGradientData(f, t[a], e[a], l);
+                var g = this.setGradientOpacity(t[a], e[a], l);
+                g && f.setAttribute("mask", "url(#" + g + ")"),
+                e[a].elem = f,
+                r.appendChild(f),
+                i.addChild(m)
+            }
+            t[a].ln && f.setAttribute("id", t[a].ln),
+            t[a].cl && f.setAttribute("class", t[a].cl),
+            l.pElem = f,
+            l.PPElem = m,
+            this.stylesList.push(l),
+            e[a].style = l,
+            u.push(l)
+        } else if ("gr" == t[a].ty) {
+            e[a] = {
+                it: []
+            };
+            var v = document.createElementNS(svgNS, "g");
+            r.appendChild(v);
+            var b = new PIXI.DisplayObjectContainer;
+            i.addChild(b),
+            e[a].PGr = b,
+            e[a].gr = v,
+            this.searchShapes(t[a].it, e[a].it, v, b, s, n + 1)
+        } else if ("tr" == t[a].ty)
+            for (e[a] = {
+                transform: {
+                    op: PropertyFactory.getProp(this, t[a].o, 0, .01, s),
+                    mProps: PropertyFactory.getProp(this, t[a], 2, null, s)
+                },
+                elements: []
+            },
+                 p = e[a].transform,
+                 h = this.stylesList.length,
+                 o = 0; h > o; o += 1)
+                this.stylesList[o].closed || this.stylesList[o].transformers.push(p);
+    else if ("sh" == t[a].ty || "rc" == t[a].ty || "el" == t[a].ty || "sr" == t[a].ty) {
+        e[a] = {
+            elements: [],
+            caches: [],
+            PCaches: [],
+            styles: [],
+            lStr: ""
+        };
+        var x = 4;
+        for ("rc" == t[a].ty ? x = 5 : "el" == t[a].ty ? x = 6 : "sr" == t[a].ty && (x = 7),
+             e[a].sh = ShapePropertyFactory.getShapeProp(this, t[a], x, s),
+             e[a].lvl = n,
+             this.shapes.push(e[a].sh),
+             this.addShapeToModifiers(e[a].sh),
+             h = this.stylesList.length,
+             o = 0; h > o; o += 1)
+            this.stylesList[o].closed || e[a].elements.push({
+                ty: this.stylesList[o].type,
+                st: this.stylesList[o]
+            })
+    } else if ("tm" == t[a].ty || "rd" == t[a].ty || "ms" == t[a].ty) {
+        var E = ShapeModifiers.getModifier(t[a].ty);
+        E.init(this, t[a], s),
+        this.shapeModifiers.push(E),
+        d.push(E),
+        e[a] = E
+    }
+    for (c = u.length,
+         a = 0; c > a; a += 1)
+        u[a].closed = !0;
+    for (c = d.length,
+         a = 0; c > a; a += 1)
+        d[a].closed = !0
+};
+
+PIXIShapeElement.prototype.addShapeToModifiers = function(t) {
+    var e, r = this.shapeModifiers.length;
+    for (e = 0; r > e; e += 1)
+        this.shapeModifiers[e].addShape(t)
+};
+
+PIXIShapeElement.prototype.renderModifiers = function() {
+    if (this.shapeModifiers.length) {
+        var t, e = this.shapes.length;
+        for (t = 0; e > t; t += 1)
+            this.shapes[t].reset();
+        for (e = this.shapeModifiers.length,
+             t = e - 1; t >= 0; t -= 1)
+            this.shapeModifiers[t].processShapes(this.firstFrame)
+    }
+};
+
+PIXIShapeElement.prototype.renderFrame = function(t) {
+    var e = this._parent.renderFrame.call(this, t);
+    return e === !1 ? void this.hide() : (this.PLayerElement.visible = !0,
+                                          this.globalToLocal([0, 0, 0]),
+                                          this.hidden = !1,
+                                          this.renderModifiers(),
+                                          void this.renderShape(null, null, !0, null))
+};
+
+PIXIShapeElement.prototype.hide = function() {
+    if (!this.hidden) {
+        this.PLayerElement.visible = !1;
+        var t, e = this.stylesList.length;
+        for (t = e - 1; t >= 0; t -= 1)
+            "0" !== this.stylesList[t].ld && (this.stylesList[t].ld = "0",
+                                              this.stylesList[t].pElem.style.display = "none",
+                                              this.stylesList[t].pElem.parentNode && (this.stylesList[t].parent = this.stylesList[t].pElem.parentNode));
+        this.hidden = !0
+    }
+};
+
+PIXIShapeElement.prototype.renderShape = function(t, e, r, i, s) {
+    var n, a;
+    if (!t)
+        for (t = this.shapesData,
+             a = this.stylesList.length,
+             n = 0; a > n; n += 1)
+            this.stylesList[n].d = "",
+    this.stylesList[n].PD.length = 0,
+    this.stylesList[n].mdf = !1;
+    e || (e = this.viewData),
+    a = t.length - 1;
+    var o;
+    for (n = a; n >= 0; n -= 1)
+        if (o = t[n].ty,
+            "tr" == o) {
+            if ((this.firstFrame || e[n].transform.op.mdf && i) && (i.setAttribute("opacity", e[n].transform.op.v),
+                                                                    s.alpha = e[n].transform.op.v),
+                this.firstFrame || e[n].transform.mProps.mdf && i) {
+                i.setAttribute("transform", e[n].transform.mProps.v.to2dCSS());
+                var h = e[n].transform.mProps.v.props
+                , l = new PIXI.Matrix;
+                l.a = h[0],
+                l.b = h[1],
+                l.c = h[4],
+                l.d = h[5],
+                l.tx = h[12],
+                l.ty = h[13],
+                s.transform.setFromMatrix(l)
+            }
+        } else
+            "sh" == o || "el" == o || "rc" == o || "sr" == o ? this.renderPath(t[n], e[n]) : "fl" == o ? this.renderFill(t[n], e[n]) : "gf" == o ? this.renderGradient(t[n], e[n]) : "gs" == o ? (this.renderGradient(t[n], e[n]),
+                                                                                                                                                                                                  this.renderStroke(t[n], e[n])) : "st" == o ? this.renderStroke(t[n], e[n]) : "gr" == o && this.renderShape(t[n].it, e[n].it, !1, e[n].gr, e[n].PGr);
+    if (r) {
+        for (a = this.stylesList.length,
+             n = 0; a > n; n += 1) {
+            "0" === this.stylesList[n].ld && (this.stylesList[n].ld = "1",
+                                              this.stylesList[n].pElem.style.display = "block"),
+            (this.stylesList[n].mdf || this.firstFrame) && (this.stylesList[n].pElem.setAttribute("d", this.stylesList[n].d),
+                                                            this.stylesList[n].msElem && this.stylesList[n].msElem.setAttribute("d", this.stylesList[n].d));
+            var p, c = this.stylesList[n].PD.length;
+            for (p = 0; c > p; p += 1)
+                "m" === this.stylesList[n].PD[p].t ? this.stylesList[n].PPElem.moveTo(this.stylesList[n].PD[p].c[0], this.stylesList[n].PD[p].c[1]) : this.stylesList[n].PPElem.bezierCurveTo(this.stylesList[n].PD[p].c[0], this.stylesList[n].PD[p].c[1], this.stylesList[n].PD[p].c[2], this.stylesList[n].PD[p].c[3], this.stylesList[n].PD[p].c[4], this.stylesList[n].PD[p].c[5]);
+            this.stylesList[n].PPElem.endFill()
+        }
+        this.firstFrame && (this.firstFrame = !1)
+    }
+};
+
+PIXIShapeElement.prototype.renderPath = function(t, e) {
+    var r, i, s, n, a, o, h, l, p, c = e.elements.length, u = e.lvl;
+    for (p = 0; c > p; p += 1) {
+        h = e.sh.mdf || this.firstFrame,
+        a = "",
+        o = [];
+        var d = e.sh.paths;
+        n = d.length;
+        var f, m, y;
+        if (e.elements[p].st.lvl < u) {
+            var g, v, b = this.mHelper.reset(), x = e.elements[p].st.lvl;
+            for (v = u - 1; v >= x; v -= 1)
+                h = e.elements[p].st.transformers[v - x].mProps.mdf || h,
+            g = e.elements[p].st.transformers[v - x].mProps.v.props,
+            b.transform(g[0], g[1], g[2], g[3], g[4], g[5], g[6], g[7], g[8], g[9], g[10], g[11], g[12], g[13], g[14], g[15]);
+            if (h) {
+                for (s = 0; n > s; s += 1)
+                    if (l = d[s],
+                        l && l.v) {
+                        for (r = l.v.length,
+                             i = 1; r > i; i += 1)
+                            1 == i && (a += " M" + b.applyToPointStringified(l.v[0][0], l.v[0][1]),
+                                       f = b.applyToPointArray(l.v[0][0], l.v[0][1], 0),
+                                       o.push({
+                                           t: "m",
+                                           c: [f[0], f[1]]
+                                       })),
+                        a += " C" + b.applyToPointStringified(l.o[i - 1][0], l.o[i - 1][1]) + " " + b.applyToPointStringified(l.i[i][0], l.i[i][1]) + " " + b.applyToPointStringified(l.v[i][0], l.v[i][1]),
+                        f = b.applyToPointArray(l.v[i][0], l.v[i][1], 0),
+                        y = b.applyToPointArray(l.o[i - 1][0], l.o[i - 1][1], 0),
+                        m = b.applyToPointArray(l.i[i][0], l.i[i][1], 0),
+                        o.push({
+                            t: "c",
+                            c: [y[0], y[1], m[0], m[1], f[0], f[1]]
+                        });
+                        1 == r && (a += " M" + b.applyToPointStringified(l.v[0][0], l.v[0][1]),
+                                   f = b.applyToPointArray(l.v[0][0], l.v[0][1], 0),
+                                   o.push({
+                                       t: "m",
+                                       c: [f[0], f[1]]
+                                   })),
+                        l.c && (a += " C" + b.applyToPointStringified(l.o[i - 1][0], l.o[i - 1][1]) + " " + b.applyToPointStringified(l.i[0][0], l.i[0][1]) + " " + b.applyToPointStringified(l.v[0][0], l.v[0][1]),
+                                a += "z",
+                                f = b.applyToPointArray(l.v[0][0], l.v[0][1], 0),
+                                y = b.applyToPointArray(l.o[i - 1][0], l.o[i - 1][1], 0),
+                                m = b.applyToPointArray(l.i[0][0], l.i[0][1], 0),
+                                o.push({
+                                    t: "c",
+                                    c: [y[0], y[1], m[0], m[1], f[0], f[1]]
+                                }))
+                    }
+                e.caches[p] = a,
+                e.PCaches[p] = o
+            } else
+                a = e.caches[p],
+            o = e.PCaches[p]
+        } else if (h) {
+            for (s = 0; n > s; s += 1)
+                if (l = d[s],
+                    l && l.v) {
+                    for (r = l.v.length,
+                         i = 1; r > i; i += 1)
+                        1 == i && (a += " M" + l.v[0].join(","),
+                                   o.push({
+                                       t: "m",
+                                       c: [l.v[0][0], l.v[0][1]]
+                                   })),
+                    a += " C" + l.o[i - 1].join(",") + " " + l.i[i].join(",") + " " + l.v[i].join(","),
+                    o.push({
+                        t: "c",
+                        c: [l.o[i - 1][0], l.o[i - 1][1], l.i[i][0], l.i[i][1], l.v[i][0], l.v[i][1]]
+                    });
+                    1 == r && (a += " M" + l.v[0].join(","),
+                               o.push({
+                                   t: "m",
+                                   c: [l.v[0][0], l.v[0][1]]
+                               })),
+                    l.c && (a += " C" + l.o[i - 1].join(",") + " " + l.i[0].join(",") + " " + l.v[0].join(","),
+                            a += "z",
+                            o.push({
+                                t: "c",
+                                c: [l.o[i - 1][0], l.o[i - 1][1], l.i[0][0], l.i[0][1], l.v[0][0], l.v[0][1]]
+                            }))
+                }
+            e.caches[p] = a,
+            e.PCaches[p] = o
+        } else
+            a = e.caches[p],
+        o = e.PCaches[p];
+        2 === o.length && o[0].c[0] === o[1].c[0] && o[0].c[1] === o[1].c[1] && o[0].c[0] === o[1].c[2] && o[0].c[1] === o[1].c[3] && o[0].c[0] === o[1].c[4] && o[0].c[1] === o[1].c[5] && (o[1].c[4] += .1,
+                                                                                                                                                                                             o[1].c[5] += .1),
+        e.elements[p].st.d += a,
+        e.elements[p].st.PD = e.elements[p].st.PD.concat(o),
+        e.elements[p].st.mdf = h || e.elements[p].st.mdf
+    }
+};
+
+PIXIShapeElement.prototype.renderFill = function(t, e) {
+    var r = e.style;
+    (e.c.mdf || this.firstFrame) && r.pElem.setAttribute("fill", "rgb(" + bm_floor(e.c.v[0]) + "," + bm_floor(e.c.v[1]) + "," + bm_floor(e.c.v[2]) + ")"),
+    r.PPElem.clear(),
+    r.PPElem.beginFill(rgbToHex(bm_floor(e.c.v[0]), bm_floor(e.c.v[1]), bm_floor(e.c.v[2]), "0x")),
+    (e.o.mdf || this.firstFrame) && r.pElem.setAttribute("fill-opacity", e.o.v)
+};
+
+PIXIShapeElement.prototype.renderGradient = function(t, e) {
+    var r = e.gf
+    , i = e.of
+    , s = e.s.v
+    , n = e.e.v;
+    if (e.o.mdf || this.firstFrame) {
+        var a = "gf" === t.ty ? "fill-opacity" : "stroke-opacity";
+        e.elem.setAttribute(a, e.o.v)
+    }
+    if (e.s.mdf || this.firstFrame) {
+        var o = 1 === t.t ? "x1" : "cx"
+        , h = "x1" === o ? "y1" : "cy";
+        r.setAttribute(o, s[0]),
+        r.setAttribute(h, s[1]),
+        i && (i.setAttribute(o, s[0]),
+              i.setAttribute(h, s[1]))
+    }
+    var l, p, c, u;
+    if (e.g.cmdf || this.firstFrame) {
+        l = e.cst;
+        var d = e.g.c;
+        for (c = l.length,
+             p = 0; c > p; p += 1)
+            u = l[p],
+        u.setAttribute("offset", d[4 * p] + "%"),
+        u.setAttribute("stop-color", "rgb(" + d[4 * p + 1] + "," + d[4 * p + 2] + "," + d[4 * p + 3] + ")")
+    }
+    if (i && (e.g.omdf || this.firstFrame)) {
+        l = e.ost;
+        var f = e.g.o;
+        for (c = l.length,
+             p = 0; c > p; p += 1)
+            u = l[p],
+        u.setAttribute("offset", f[2 * p] + "%"),
+        u.setAttribute("stop-opacity", f[2 * p + 1])
+    }
+    if (1 === t.t)
+        (e.e.mdf || this.firstFrame) && (r.setAttribute("x2", n[0]),
+                                         r.setAttribute("y2", n[1]),
+                                         i && (i.setAttribute("x2", n[0]),
+                                               i.setAttribute("y2", n[1])));
+    else {
+        var m;
+        if ((e.s.mdf || e.e.mdf || this.firstFrame) && (m = Math.sqrt(Math.pow(s[0] - n[0], 2) + Math.pow(s[1] - n[1], 2)),
+                                                        r.setAttribute("r", m),
+                                                        i && i.setAttribute("r", m)),
+            e.e.mdf || e.h.mdf || e.a.mdf || this.firstFrame) {
+            m || (m = Math.sqrt(Math.pow(s[0] - n[0], 2) + Math.pow(s[1] - n[1], 2)));
+            var y = Math.atan2(n[1] - s[1], n[0] - s[0])
+            , g = e.h.v >= 1 ? .99 : e.h.v <= -1 ? -.99 : e.h.v
+            , v = m * g
+            , b = Math.cos(y + e.a.v) * v + s[0]
+            , x = Math.sin(y + e.a.v) * v + s[1];
+            r.setAttribute("fx", b),
+            r.setAttribute("fy", x),
+            i && (i.setAttribute("fx", b),
+                  i.setAttribute("fy", x))
+        }
+    }
+};
+
+PIXIShapeElement.prototype.renderStroke = function(t, e) {
+    var r = e.style
+    , i = e.d;
+    i && i.k && (i.mdf || this.firstFrame) && (r.pElem.setAttribute("stroke-dasharray", i.dasharray),
+                                               r.pElem.setAttribute("stroke-dashoffset", i.dashoffset)),
+    r.PPElem.clear(),
+    e.c && (e.c.mdf || this.firstFrame) && r.pElem.setAttribute("stroke", "rgb(" + bm_floor(e.c.v[0]) + "," + bm_floor(e.c.v[1]) + "," + bm_floor(e.c.v[2]) + ")"),
+    (e.o.mdf || this.firstFrame) && r.pElem.setAttribute("stroke-opacity", e.o.v),
+    (e.w.mdf || this.firstFrame) && (r.pElem.setAttribute("stroke-width", e.w.v),
+                                     r.msElem && r.msElem.setAttribute("stroke-width", e.w.v)),
+    r.PPElem.lineStyle(e.w.v, rgbToHex(bm_floor(e.c.v[0]), bm_floor(e.c.v[1]), bm_floor(e.c.v[2]), "0x"))
+};
+
+PIXIShapeElement.prototype.destroy = function() {
+    this._parent.destroy.call(),
+    this.shapeData = null,
+    this.viewData = null,
+    this.parentContainer = null,
+    this.placeholder = null
+};
+
+function PIXIMaskElement(t, e, r) {
+    this.dynamicProperties = [],
+    this.data = t,
+    this.element = e,
+    this.globalData = r,
+    this.paths = [],
+    this.storedData = [],
+    this.masksProperties = this.data.masksProperties,
+    this.viewData = new Array(this.masksProperties.length),
+    this.maskElement = null,
+    this.PMaskElement = null,
+    this.firstFrame = !0;
+    var i, s, n, a, o, h, l, p, c, u = this.globalData.defs, d = this.masksProperties.length, f = this.masksProperties, m = 0, y = [], g = [], v = randomString(10), b = "clipPath", x = "clip-path";
+    for (i = 0; d > i; i++)
+        if (("a" !== f[i].mode && "n" !== f[i].mode || f[i].inv) && (b = "mask",
+                                                                     x = "mask"),
+            "s" != f[i].mode && "i" != f[i].mode || 0 != m ? h = null : (h = document.createElementNS(svgNS, "rect"),
+                                                                         h.setAttribute("fill", "#ffffff"),
+                                                                         h.setAttribute("width", this.element.comp.data ? this.element.comp.data.w : this.element.globalData.compSize.w),
+                                                                         h.setAttribute("height", this.element.comp.data ? this.element.comp.data.h : this.element.globalData.compSize.h),
+                                                                         y.push(h)),
+            s = document.createElementNS(svgNS, "path"),
+            n = new PIXI.Graphics,
+            "n" != f[i].mode && f[i].cl !== !1) {
+            if (m += 1,
+                f[i].cl ? "s" == f[i].mode ? s.setAttribute("fill", "#000000") : s.setAttribute("fill", "#ffffff") : (s.setAttribute("fill", "none"),
+                                                                                                                      "s" == f[i].mode ? s.setAttribute("fill", "#000000") : s.setAttribute("fill", "#ffffff"),
+                                                                                                                      s.setAttribute("stroke-width", "1"),
+                                                                                                                      s.setAttribute("stroke-miterlimit", "10")),
+                s.setAttribute("clip-rule", "nonzero"),
+                0 !== f[i].x.k) {
+                b = "mask",
+                x = "mask",
+                c = PropertyFactory.getProp(this.element, f[i].x, 0, null, this.dynamicProperties);
+                var E = "fi_" + randomString(10);
+                l = document.createElementNS(svgNS, "filter"),
+                l.setAttribute("id", E),
+                p = document.createElementNS(svgNS, "feMorphology"),
+                p.setAttribute("operator", "dilate"),
+                p.setAttribute("in", "SourceGraphic"),
+                p.setAttribute("radius", "0"),
+                l.appendChild(p),
+                u.appendChild(l),
+                "s" == f[i].mode ? s.setAttribute("stroke", "#000000") : s.setAttribute("stroke", "#ffffff")
+            } else
+                p = null,
+            c = null;
+            if (this.storedData[i] = {
+                elem: s,
+                PElem: n,
+                x: c,
+                expan: p,
+                lastPath: "",
+                lastOperator: "",
+                filterId: E,
+                lastRadius: 0
+            },
+                "i" == f[i].mode) {
+                o = y.length;
+                var T = document.createElementNS(svgNS, "g");
+                for (a = 0; o > a; a += 1)
+                    T.appendChild(y[a]);
+                var _ = document.createElementNS(svgNS, "mask");
+                _.setAttribute("mask-type", "alpha"),
+                _.setAttribute("id", v + "_" + m),
+                _.appendChild(s),
+                u.appendChild(_),
+                T.setAttribute("mask", "url(#" + v + "_" + m + ")"),
+                y.length = 0,
+                y.push(T)
+            } else
+                y.push(s),
+            g.push(n);
+            f[i].inv && !this.solidPath && (this.solidPath = this.createLayerSolidPath()),
+            this.viewData[i] = {
+                elem: s,
+                PElem: n,
+                lastPath: "",
+                prop: ShapePropertyFactory.getShapeProp(this.element, f[i], 3, this.dynamicProperties, null)
+            },
+            h && (this.viewData[i].invRect = h),
+            this.viewData[i].prop.k || this.drawPath(f[i], this.viewData[i].prop.v, this.viewData[i])
+        } else
+            this.viewData[i] = {
+                prop: ShapePropertyFactory.getShapeProp(this.element, f[i], 3, this.dynamicProperties, null),
+                elem: s
+            },
+    u.appendChild(s);
+    for (this.maskElement = document.createElementNS(svgNS, b),
+         this.PMaskElement = new PIXI.DisplayObjectContainer,
+         d = y.length,
+         i = 0; d > i; i += 1)
+        this.maskElement.appendChild(y[i]);
+    this.maskElement.setAttribute("id", v),
+    m > 0 && (this.element.maskedElement.setAttribute(x, "url(#" + v + ")"),
+              this.element.PMaskedElement.mask = g[0],
+              this.element.PMaskedElement.addChild(g[0])),
+    u.appendChild(this.maskElement)
+};
+
+PIXIMaskElement.prototype.getMaskProperty = function(t) {
+    return this.viewData[t].prop
+};
+
+PIXIMaskElement.prototype.prepareFrame = function() {
+    var t, e = this.dynamicProperties.length;
+    for (t = 0; e > t; t += 1)
+        this.dynamicProperties[t].getValue()
+};
+
+PIXIMaskElement.prototype.renderFrame = function(t) {
+    var e, r = this.masksProperties.length;
+    for (e = 0; r > e; e++)
+        if ((this.viewData[e].prop.mdf || this.firstFrame) && this.drawPath(this.masksProperties[e], this.viewData[e].prop.v, this.viewData[e]),
+            "n" !== this.masksProperties[e].mode && this.masksProperties[e].cl !== !1 && (this.viewData[e].invRect && (this.element.finalTransform.mProp.mdf || this.firstFrame) && (this.viewData[e].invRect.setAttribute("x", -t.props[12]),
+                                                                                                                                                                                     this.viewData[e].invRect.setAttribute("y", -t.props[13])),
+                                                                                          this.storedData[e].x && (this.storedData[e].x.mdf || this.firstFrame))) {
+            var i = this.storedData[e].expan;
+            this.storedData[e].x.v < 0 ? ("erode" !== this.storedData[e].lastOperator && (this.storedData[e].lastOperator = "erode",
+                                                                                          this.storedData[e].elem.setAttribute("filter", "url(#" + this.storedData[e].filterId + ")")),
+                                          i.setAttribute("radius", -this.storedData[e].x.v)) : ("dilate" !== this.storedData[e].lastOperator && (this.storedData[e].lastOperator = "dilate",
+                                                                                                                                                 this.storedData[e].elem.setAttribute("filter", null)),
+                                                                                                this.storedData[e].elem.setAttribute("stroke-width", 2 * this.storedData[e].x.v))
+        }
+    this.firstFrame = !1
+};
+
+PIXIMaskElement.prototype.getMaskelement = function() {
+    return this.maskElement
+};
+
+PIXIMaskElement.prototype.createLayerSolidPath = function() {
+    var t = "M0,0 ";
+    return t += " h" + this.globalData.compSize.w,
+    t += " v" + this.globalData.compSize.h,
+    t += " h-" + this.globalData.compSize.w,
+    t += " v-" + this.globalData.compSize.h + " "
+};
+
+PIXIMaskElement.prototype.drawPath = function(t, e, r) {
+    var i, s, n = "";
+    for (s = e.v.length,
+         r.PElem.clear(),
+         r.PElem.beginFill(16777215),
+         i = 1; s > i; i += 1)
+        1 == i && (n += " M" + bm_rnd(e.v[0][0]) + "," + bm_rnd(e.v[0][1]),
+                   r.PElem.moveTo(e.v[0][0], e.v[0][1])),
+    n += " C" + bm_rnd(e.o[i - 1][0]) + "," + bm_rnd(e.o[i - 1][1]) + " " + bm_rnd(e.i[i][0]) + "," + bm_rnd(e.i[i][1]) + " " + bm_rnd(e.v[i][0]) + "," + bm_rnd(e.v[i][1]),
+    r.PElem.bezierCurveTo(e.o[i - 1][0], e.o[i - 1][1], e.i[i][0], e.i[i][1], e.v[i][0], e.v[i][1]);
+    t.cl && (n += " C" + bm_rnd(e.o[i - 1][0]) + "," + bm_rnd(e.o[i - 1][1]) + " " + bm_rnd(e.i[0][0]) + "," + bm_rnd(e.i[0][1]) + " " + bm_rnd(e.v[0][0]) + "," + bm_rnd(e.v[0][1]),
+             r.PElem.bezierCurveTo(e.o[i - 1][0], e.o[i - 1][1], e.i[0][0], e.i[0][1], e.v[0][0], e.v[0][1])),
+    r.PElem.endFill(),
+    r.lastPath !== n && (r.elem && (t.inv ? r.elem.setAttribute("d", this.solidPath + n) : r.elem.setAttribute("d", n)),
+                         r.lastPath = n)
+};
+
+PIXIMaskElement.prototype.getMask = function(t) {
+    for (var e = 0, r = this.masksProperties.length; r > e; ) {
+        if (this.masksProperties[e].nm === t)
+            return {
+                maskPath: this.viewData[e].prop.pv
+            };
+        e += 1
+    }
+};
+
+PIXIMaskElement.prototype.destroy = function() {
+    this.element = null,
+    this.globalData = null,
+    this.maskElement = null,
+    this.data = null,
+    this.paths = null,
+    this.masksProperties = null
+};
+
 function CVBaseElement(data, comp,globalData){
     this.globalData = globalData;
     this.data = data;
@@ -9876,6 +10936,7 @@ CVCompElement.prototype.prepareFrame = function(num){
 };
 
 CVCompElement.prototype.renderFrame = function(parentMatrix){
+    //return;
     if(this._parent.renderFrame.call(this,parentMatrix)===false){
         return;
     }
@@ -9893,6 +10954,7 @@ CVCompElement.prototype.renderFrame = function(parentMatrix){
     if(this.firstFrame){
         this.firstFrame = false;
     }
+
     this.parentGlobalData.renderer.save();
     this.parentGlobalData.renderer.ctxTransform(this.finalTransform.mat.props);
     this.parentGlobalData.renderer.ctxOpacity(this.finalTransform.opacity);
@@ -9934,6 +10996,7 @@ CVCompElement.prototype.createShape = CanvasRenderer.prototype.createShape;
 CVCompElement.prototype.createText = CanvasRenderer.prototype.createText;
 CVCompElement.prototype.createBase = CanvasRenderer.prototype.createBase;
 CVCompElement.prototype.buildElementParenting = CanvasRenderer.prototype.buildElementParenting;
+
 function CVImageElement(data, comp,globalData){
     this.assetData = globalData.getAssetData(data.refId);
     this._parent.constructor.call(this,data, comp,globalData);
@@ -10032,6 +11095,7 @@ CVMaskElement.prototype.prepareFrame = function(num){
 };
 
 CVMaskElement.prototype.renderFrame = function (transform) {
+    /*
     var ctx = this.element.canvasContext;
     var i, len = this.data.masksProperties.length;
     var pt,pt2,pt3,data, hasMasks = false;
@@ -10068,6 +11132,7 @@ CVMaskElement.prototype.renderFrame = function (transform) {
     if(hasMasks){
         ctx.clip();
     }
+*/
 };
 
 CVMaskElement.prototype.getMask = function(nm){
@@ -10085,6 +11150,7 @@ CVMaskElement.prototype.getMask = function(nm){
 CVMaskElement.prototype.destroy = function(){
     this.element = null;
 };
+
 function CVShapeElement(data, comp,globalData){
     this.shapes = [];
     this.shapesData = data.shapes;
@@ -10419,6 +11485,7 @@ CVShapeElement.prototype.renderShape = function(parentTransform,items,data,isMai
             if(type === 'st'){
                 ctx.stroke();
             }
+
         }
         if(type !== 'st'){
             ctx.fill(this.stylesList[i].r);
@@ -13610,27 +14677,24 @@ var LayerExpressionInterface = (function (){
 }());
 
 var CompExpressionInterface = (function (){
-    return function(comp){
-        function _thisLayerFunction(name){
-            var i=0, len = comp.layers.length;
-            while(i<len){
-                if(comp.layers[i].nm === name || comp.layers[i].ind === name){
-                    return comp.elements[i].layerInterface;
+    return function(t) {
+            function e(e) {
+                for (var r = 0, i = t.layers.length; i > r; ) {
+                    if (t.layers[r].nm === e)
+                        return t.elements[r].layerInterface;
+                    r += 1
                 }
-                i += 1;
             }
-            return {active:false}
-        }
-        Object.defineProperty(_thisLayerFunction, "_name", { value:comp.data.nm });
-        _thisLayerFunction.layer = _thisLayerFunction;
-        _thisLayerFunction.pixelAspect = 1;
-        _thisLayerFunction.height = comp.globalData.compSize.h;
-        _thisLayerFunction.width = comp.globalData.compSize.w;
-        _thisLayerFunction.pixelAspect = 1;
-        _thisLayerFunction.frameDuration = 1/comp.globalData.frameRate;
-        return _thisLayerFunction;
+            return e.layer = e,
+            e.pixelAspect = 1,
+            e.height = t.globalData.compSize.h,
+            e.width = t.globalData.compSize.w,
+            e.pixelAspect = 1,
+            e.frameDuration = 1 / t.globalData.frameRate,
+            e
     }
 }());
+
 var TransformExpressionInterface = (function (){
     return function(transform){
         function _thisFunction(name){

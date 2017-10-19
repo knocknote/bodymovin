@@ -109,6 +109,7 @@ CVCompElement.prototype.prepareFrame = function(num){
 };
 
 CVCompElement.prototype.renderFrame = function(parentMatrix){
+    //return;
     if(this._parent.renderFrame.call(this,parentMatrix)===false){
         return;
     }
@@ -126,6 +127,7 @@ CVCompElement.prototype.renderFrame = function(parentMatrix){
     if(this.firstFrame){
         this.firstFrame = false;
     }
+
     this.parentGlobalData.renderer.save();
     this.parentGlobalData.renderer.ctxTransform(this.finalTransform.mat.props);
     this.parentGlobalData.renderer.ctxOpacity(this.finalTransform.opacity);

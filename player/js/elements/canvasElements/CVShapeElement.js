@@ -332,6 +332,7 @@ CVShapeElement.prototype.renderShape = function(parentTransform,items,data,isMai
             if(type === 'st'){
                 ctx.stroke();
             }
+
         }
         if(type !== 'st'){
             ctx.fill(this.stylesList[i].r);

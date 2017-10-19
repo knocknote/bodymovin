@@ -135,6 +135,7 @@ CanvasRenderer.prototype.restore = function(actionFlag){
 };
 
 CanvasRenderer.prototype.configAnimation = function(animData){
+    console.log(animData);
     if(this.animationItem.wrapper){
         this.animationItem.container = document.createElement('canvas');
         this.animationItem.container.style.width = '100%';

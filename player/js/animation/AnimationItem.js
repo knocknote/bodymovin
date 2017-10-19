@@ -42,6 +42,9 @@ AnimationItem.prototype.setParams = function(params) {
     }
     var animType = params.animType ? params.animType : params.renderer ? params.renderer : 'svg';
     switch(animType){
+        case 'pixi':
+            this.renderer = new PIXIRenderer(this, params.rendererSettings);
+            break;
         case 'canvas':
             this.renderer = new CanvasRenderer(this, params.rendererSettings);
             break;

@@ -37,5 +37,9 @@
     "gulp-wrap": "^0.11.0",
     "markdown-pdf": "^8.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "ae-to-json-cli": "^1.0.0",
+    "is-explicit": "^1.4.1"
+  }
 }

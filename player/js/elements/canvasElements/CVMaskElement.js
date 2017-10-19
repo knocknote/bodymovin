@@ -26,6 +26,7 @@ CVMaskElement.prototype.prepareFrame = function(num){
 };
 
 CVMaskElement.prototype.renderFrame = function (transform) {
+    /*
     var ctx = this.element.canvasContext;
     var i, len = this.data.masksProperties.length;
     var pt,pt2,pt3,data, hasMasks = false;
@@ -62,6 +63,7 @@ CVMaskElement.prototype.renderFrame = function (transform) {
     if(hasMasks){
         ctx.clip();
     }
+*/
 };
 
 CVMaskElement.prototype.getMask = function(nm){

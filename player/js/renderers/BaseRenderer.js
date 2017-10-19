@@ -5,6 +5,7 @@ BaseRenderer.prototype.checkLayers = function(num){
     for (i = len - 1; i >= 0; i--) {
         if (!this.elements[i]) {
             data = this.layers[i];
+            console.log("num = ", num, "data.ip - data.st = ", data.ip - data.st, "data.op - data.st = ", data.op - data.st, "currentSt = ", this.layers[i].st);
             if(data.ip - data.st <= (num - this.layers[i].st) && data.op - data.st > (num - this.layers[i].st))
             {
                 this.buildItem(i);
@@ -40,6 +41,7 @@ BaseRenderer.prototype.createCamera = function(){
 }
 
 BaseRenderer.prototype.buildAllItems = function(){
+    console.log("BaseRenderer.buildAllItems");
     var i, len = this.layers.length;
     for(i=0;i<len;i+=1){
         this.buildItem(i);
@@ -91,8 +93,6 @@ BaseRenderer.prototype.buildElementParenting = function(element, parentName, hie
                 elements[i]._isParent = true;
                 element.setHierarchy(hierarchy);
             }
-
-
         }
         i += 1;
     }
